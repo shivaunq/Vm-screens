@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">VM Master</string>
+    <string name="auth_brand_badge">100X CLOUD VM MASTER</string>
+    <string name="auth_headline">Enterprise Cloud Android Fleet Control</string>
+    <string name="auth_subtitle">Authenticate with your administrator Google account to manage 100 isolated cloud Android environments, push testing URLs, and monitor live host telemetry.</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="init_100_slots_cta">Initialize 100 VM Slots (VM-001 to VM-100)</string>
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_devices">Devices</string>
+    <string name="nav_urls">URL Push</string>
+    <string name="nav_apps">Apps</string>
+    <string name="nav_logs">Host &amp; Logs</string>
+    <string name="action_open_selected">OPEN SELECTED</string>
+    <string name="action_open_all">OPEN ALL (100)</string>
+    <string name="cd_app_emblem">VM Master command emblem</string>
+    <string name="cd_hero_banner">Cloud Android VM fleet visualization banner</string>
+    <string name="cd_sign_out">Sign out of administrator session</string>
+    <string name="cd_close_dialog">Close dialog</string>
+</resources>

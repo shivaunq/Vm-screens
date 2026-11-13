@@ -1,0 +1,163 @@
+{
+  "entities": {
+    "AdminProfile": {
+      "title": "AdminProfile",
+      "description": "Administrator workspace profile and host gateway endpoint configuration",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated admin UID" },
+        "email": { "type": "string", "description": "Verified admin email" },
+        "displayName": { "type": "string", "description": "Admin display name" },
+        "role": { "type": "string", "enum": ["OWNER_ADMIN", "OPERATOR"], "description": "RBAC role" },
+        "fleetInitialized": { "type": "boolean", "description": "Whether VM-001..VM-100 have been initialized" },
+        "gatewayBaseUrl": { "type": "string", "description": "Configured HTTPS VM Host Gateway base URL" },
+        "webrtcSignalingUrl": { "type": "string", "description": "Configured WebRTC signaling endpoint URL" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update" }
+      },
+      "required": ["userId", "email", "displayName", "role", "fleetInitialized", "gatewayBaseUrl", "webrtcSignalingUrl", "createdAt", "updatedAt"]
+    },
+    "VmSlot": {
+      "title": "VmSlot",
+      "description": "Individual cloud Android virtual machine slot (VM-001 to VM-100)",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner admin UID" },
+        "vmId": { "type": "string", "description": "Unique slot identifier VM-001 to VM-100" },
+        "slotNumber": { "type": "integer", "description": "Numeric slot index 1..100" },
+        "name": { "type": "string", "description": "Human-friendly device environment name" },
+        "groupId": { "type": "string", "description": "Assigned device group ID" },
+        "androidVersion": { "type": "string", "description": "Android OS version string" },
+        "status": {
+          "type": "string",
+          "enum": ["UNPROVISIONED", "REGISTERED", "PROVISIONED", "ONLINE", "RUNNING", "OFFLINE", "ERROR"],
+          "description": "Honest VM lifecycle status"
+        },
+        "connectivity": {
+          "type": "string",
+          "enum": ["DISCONNECTED", "WIFI", "ETHERNET", "CELLULAR", "UNKNOWN"],
+          "description": "Reported network transport"
+        },
+        "batteryPercent": { "type": "integer", "description": "Optional battery percentage 0..100 when reported by host" },
+        "ipAddress": { "type": "string", "description": "Optional distinct IPv4/IPv6 address reported by host or assigned to VM slot" },
+        "assignedGmail": { "type": "string", "description": "Non-secret Gmail label assigned individually to this VM slot (no password stored)" },
+        "accountStatus": {
+          "type": "string",
+          "enum": ["UNASSIGNED", "GMAIL_ASSIGNED", "PLAY_SIGNED_IN", "APP_SIGNED_UP"],
+          "description": "Individual Google/Play/app signup progress for this VM slot"
+        },
+        "hostUrl": { "type": "string", "description": "Assigned cloud host endpoint URL" },
+        "streamUrl": { "type": "string", "description": "Authorized remote screen stream or WebRTC room URL" },
+        "lastError": { "type": "string", "description": "Latest diagnostic or host error message" },
+        "lastSeenAt": { "type": "string", "format": "date-time", "description": "Timestamp of last real host heartbeat" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update" }
+      },
+      "required": ["userId", "vmId", "slotNumber", "name", "groupId", "androidVersion", "status", "connectivity", "hostUrl", "streamUrl", "lastError", "createdAt", "updatedAt"]
+    },
+    "VmGroup": {
+      "title": "VmGroup",
+      "description": "Logical device pool for organizing VM slots",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner admin UID" },
+        "name": { "type": "string", "description": "Group name" },
+        "description": { "type": "string", "description": "Group purpose description" },
+        "colorHex": { "type": "string", "description": "Accent badge hex token" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "description", "colorHex", "createdAt", "updatedAt"]
+    },
+    "VmCommand": {
+      "title": "VmCommand",
+      "description": "Command dispatch record for VM lifecycle, URL push, or APK operation",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner admin UID" },
+        "vmId": { "type": "string", "description": "Target VM slot ID" },
+        "commandType": {
+          "type": "string",
+          "enum": ["START", "STOP", "RESTART", "OPEN_URL", "LAUNCH_APP", "OPEN_GOOGLE_SIGNIN", "INSTALL_APK", "UPDATE_APK", "UNINSTALL_APK"],
+          "description": "Command action type"
+        },
+        "targetPayload": { "type": "string", "description": "URL or APK URI payload" },
+        "targetPackage": { "type": "string", "description": "Target Android package name when applicable" },
+        "deliveryStatus": {
+          "type": "string",
+          "enum": ["QUEUED", "DELIVERED", "OPENED", "COMPLETED", "FAILED", "HOST_OFFLINE"],
+          "description": "Real command delivery status"
+        },
+        "statusMessage": { "type": "string", "description": "Diagnostic status response from gateway or queue" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "vmId", "commandType", "targetPayload", "targetPackage", "deliveryStatus", "statusMessage", "createdAt", "updatedAt"]
+    },
+    "VmApp": {
+      "title": "VmApp",
+      "description": "Per-VM installed APK record and isolated session profile",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner admin UID" },
+        "vmId": { "type": "string", "description": "Target VM slot ID" },
+        "packageName": { "type": "string", "description": "Android application ID" },
+        "appName": { "type": "string", "description": "Application display name" },
+        "versionName": { "type": "string", "description": "Application semantic version" },
+        "versionCode": { "type": "integer", "description": "Application numeric version code" },
+        "apkSourceUrl": { "type": "string", "description": "Authorized APK download URL or source tag" },
+        "sessionProfileId": { "type": "string", "description": "Isolated app data/login session profile ID" },
+        "installStatus": {
+          "type": "string",
+          "enum": ["PENDING", "INSTALLED", "UPDATE_AVAILABLE", "FAILED", "UNINSTALLED"],
+          "description": "Current installation state"
+        },
+        "lastError": { "type": "string", "description": "Last installation error if any" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "vmId", "packageName", "appName", "versionName", "versionCode", "apkSourceUrl", "sessionProfileId", "installStatus", "lastError", "createdAt", "updatedAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable administrator action audit log entry",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner admin UID" },
+        "actorEmail": { "type": "string", "description": "Verified actor email" },
+        "action": { "type": "string", "description": "Action identifier" },
+        "targetScope": { "type": "string", "description": "Target VM ID or fleet scope" },
+        "details": { "type": "string", "description": "Action details summary" },
+        "result": { "type": "string", "enum": ["SUCCESS", "QUEUED", "HOST_OFFLINE", "FAILED"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "actorEmail", "action", "targetScope", "details", "result", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/profile/{profileId}": {
+      "schema": { "$ref": "#/entities/AdminProfile" },
+      "description": "Administrator profile and gateway configuration"
+    },
+    "/users/{userId}/vms/{vmId}": {
+      "schema": { "$ref": "#/entities/VmSlot" },
+      "description": "100 isolated cloud Android VM slots (VM-001 to VM-100)"
+    },
+    "/users/{userId}/vm_groups/{groupId}": {
+      "schema": { "$ref": "#/entities/VmGroup" },
+      "description": "Logical device groups for organizing VM slots"
+    },
+    "/users/{userId}/vm_commands/{commandId}": {
+      "schema": { "$ref": "#/entities/VmCommand" },
+      "description": "Dispatched VM control, URL push, and APK commands"
+    },
+    "/users/{userId}/vm_apps/{appRecordId}": {
+      "schema": { "$ref": "#/entities/VmApp" },
+      "description": "Per-VM installed APKs and isolated session profiles"
+    },
+    "/users/{userId}/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Append-only audit trail for administrator actions"
+    }
+  }
+}

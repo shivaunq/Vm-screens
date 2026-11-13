@@ -1,0 +1,6 @@
+{
+  "name": "VM Master",
+  "description": "100X Cloud Android Virtual Machine Management System for managing 100 cloud Android slots (VM-001 to VM-100), URL distribution, APK management, and fleet telemetry.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

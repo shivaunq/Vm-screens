@@ -1,0 +1,300 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL HARDENED PRIMITIVES ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == 'shivatejayadav345@gmail.com' &&
+         request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    // --- ENTITY VALIDATION HELPERS ---
+
+    function isValidAdminProfile(data, userId) {
+      return data.keys().hasAll([
+               'userId', 'email', 'displayName', 'role', 'fleetInitialized',
+               'gatewayBaseUrl', 'webrtcSignalingUrl', 'createdAt', 'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'userId', 'email', 'displayName', 'role', 'fleetInitialized',
+               'gatewayBaseUrl', 'webrtcSignalingUrl', 'createdAt', 'updatedAt'
+             ]) &&
+             data.userId is string && data.userId == userId &&
+             data.email is string && data.email.size() <= 160 &&
+             data.displayName is string && data.displayName.size() <= 100 &&
+             data.role in ['OWNER_ADMIN', 'OPERATOR'] &&
+             data.fleetInitialized is bool &&
+             data.gatewayBaseUrl is string && data.gatewayBaseUrl.size() <= 500 &&
+             data.webrtcSignalingUrl is string && data.webrtcSignalingUrl.size() <= 500 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidVmSlot(data, userId) {
+      return data.keys().hasAll([
+               'userId', 'vmId', 'slotNumber', 'name', 'groupId', 'androidVersion',
+               'status', 'connectivity', 'hostUrl', 'streamUrl', 'lastError',
+               'createdAt', 'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'userId', 'vmId', 'slotNumber', 'name', 'groupId', 'androidVersion',
+               'status', 'connectivity', 'batteryPercent', 'ipAddress',
+               'assignedGmail', 'accountStatus', 'hostUrl', 'streamUrl',
+               'lastError', 'lastSeenAt', 'createdAt', 'updatedAt'
+             ]) &&
+             data.userId is string && data.userId == userId &&
+             data.vmId is string && data.vmId.size() >= 3 && data.vmId.size() <= 32 &&
+             data.slotNumber is int && data.slotNumber >= 1 && data.slotNumber <= 100 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+             data.groupId is string && data.groupId.size() >= 1 && data.groupId.size() <= 64 &&
+             data.androidVersion is string && data.androidVersion.size() >= 1 && data.androidVersion.size() <= 32 &&
+             data.status in ['UNPROVISIONED', 'REGISTERED', 'PROVISIONED', 'ONLINE', 'RUNNING', 'OFFLINE', 'ERROR'] &&
+             data.connectivity in ['DISCONNECTED', 'WIFI', 'ETHERNET', 'CELLULAR', 'UNKNOWN'] &&
+             (!('batteryPercent' in data) || data.batteryPercent == null ||
+              (data.batteryPercent is int && data.batteryPercent >= 0 && data.batteryPercent <= 100)) &&
+             (!('ipAddress' in data) || (data.ipAddress is string && data.ipAddress.size() <= 64)) &&
+             (!('assignedGmail' in data) || (data.assignedGmail is string && data.assignedGmail.size() <= 160)) &&
+             (!('accountStatus' in data) || (data.accountStatus in ['UNASSIGNED', 'GMAIL_ASSIGNED', 'PLAY_SIGNED_IN', 'APP_SIGNED_UP'])) &&
+             data.hostUrl is string && data.hostUrl.size() <= 300 &&
+             data.streamUrl is string && data.streamUrl.size() <= 300 &&
+             data.lastError is string && data.lastError.size() <= 300 &&
+             (!('lastSeenAt' in data) || data.lastSeenAt == null || isValidTimestamp(data.lastSeenAt)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidVmGroup(data, userId) {
+      return data.keys().hasAll(['userId', 'name', 'description', 'colorHex', 'createdAt', 'updatedAt']) &&
+             data.keys().hasOnly(['userId', 'name', 'description', 'colorHex', 'createdAt', 'updatedAt']) &&
+             data.userId is string && data.userId == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 40 &&
+             data.description is string && data.description.size() <= 200 &&
+             data.colorHex is string && data.colorHex.size() >= 4 && data.colorHex.size() <= 16 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidVmCommand(data, userId) {
+      return data.keys().hasAll([
+               'userId', 'vmId', 'commandType', 'targetPayload', 'targetPackage',
+               'deliveryStatus', 'statusMessage', 'createdAt', 'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'userId', 'vmId', 'commandType', 'targetPayload', 'targetPackage',
+               'deliveryStatus', 'statusMessage', 'createdAt', 'updatedAt'
+             ]) &&
+             data.userId is string && data.userId == userId &&
+             data.vmId is string && data.vmId.size() >= 3 && data.vmId.size() <= 32 &&
+             data.commandType in ['START', 'STOP', 'RESTART', 'OPEN_URL', 'LAUNCH_APP', 'OPEN_GOOGLE_SIGNIN', 'INSTALL_APK', 'UPDATE_APK', 'UNINSTALL_APK'] &&
+             data.targetPayload is string && data.targetPayload.size() <= 1024 &&
+             data.targetPackage is string && data.targetPackage.size() <= 160 &&
+             data.deliveryStatus in ['QUEUED', 'DELIVERED', 'OPENED', 'COMPLETED', 'FAILED', 'HOST_OFFLINE'] &&
+             data.statusMessage is string && data.statusMessage.size() <= 300 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidVmApp(data, userId) {
+      return data.keys().hasAll([
+               'userId', 'vmId', 'packageName', 'appName', 'versionName', 'versionCode',
+               'apkSourceUrl', 'sessionProfileId', 'installStatus', 'lastError',
+               'createdAt', 'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'userId', 'vmId', 'packageName', 'appName', 'versionName', 'versionCode',
+               'apkSourceUrl', 'sessionProfileId', 'installStatus', 'lastError',
+               'createdAt', 'updatedAt'
+             ]) &&
+             data.userId is string && data.userId == userId &&
+             data.vmId is string && data.vmId.size() >= 3 && data.vmId.size() <= 32 &&
+             data.packageName is string && data.packageName.size() >= 1 && data.packageName.size() <= 160 &&
+             data.appName is string && data.appName.size() >= 1 && data.appName.size() <= 80 &&
+             data.versionName is string && data.versionName.size() >= 1 && data.versionName.size() <= 32 &&
+             data.versionCode is int && data.versionCode >= 0 &&
+             data.apkSourceUrl is string && data.apkSourceUrl.size() <= 500 &&
+             data.sessionProfileId is string && data.sessionProfileId.size() >= 1 && data.sessionProfileId.size() <= 80 &&
+             data.installStatus in ['PENDING', 'INSTALLED', 'UPDATE_AVAILABLE', 'FAILED', 'UNINSTALLED'] &&
+             data.lastError is string && data.lastError.size() <= 300 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAuditLog(data, userId) {
+      return data.keys().hasAll([
+               'userId', 'actorEmail', 'action', 'targetScope', 'details', 'result', 'createdAt'
+             ]) &&
+             data.keys().hasOnly([
+               'userId', 'actorEmail', 'action', 'targetScope', 'details', 'result', 'createdAt'
+             ]) &&
+             data.userId is string && data.userId == userId &&
+             data.actorEmail is string && data.actorEmail.size() <= 160 &&
+             data.action is string && data.action.size() >= 1 && data.action.size() <= 64 &&
+             data.targetScope is string && data.targetScope.size() >= 1 && data.targetScope.size() <= 128 &&
+             data.details is string && data.details.size() <= 500 &&
+             data.result in ['SUCCESS', 'QUEUED', 'HOST_OFFLINE', 'FAILED'] &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    // Read-only trusted admins marker collection (managed server-side only)
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && request.auth.uid == adminId;
+      allow list, write: if false;
+    }
+
+    // --- USER-SCOPED FLEET WORKSPACE COLLECTIONS ---
+    match /users/{userId} {
+      allow read, write: if false;
+
+      match /profile/{profileId} {
+        allow get: if isOwner(userId) && isValidId(profileId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         profileId == 'admin' &&
+                         isValidAdminProfile(incoming(), userId) &&
+                         incoming().role == 'OWNER_ADMIN';
+        allow update: if isOwner(userId) &&
+                         profileId == 'admin' &&
+                         isValidAdminProfile(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().role == existing().role &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'email', 'displayName', 'fleetInitialized',
+                           'gatewayBaseUrl', 'webrtcSignalingUrl', 'updatedAt'
+                         ]);
+        allow delete: if false;
+      }
+
+      match /vms/{vmId} {
+        allow get: if isOwner(userId) && isValidId(vmId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(vmId) &&
+                         incoming().vmId == vmId &&
+                         isValidVmSlot(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(vmId) &&
+                         isValidVmSlot(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().vmId == existing().vmId &&
+                         incoming().slotNumber == existing().slotNumber &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           isBootstrappedAdmin() ||
+                           // Action: Enroll / Configure Host & Metadata
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'name', 'groupId', 'androidVersion', 'status', 'connectivity',
+                             'batteryPercent', 'ipAddress', 'assignedGmail', 'accountStatus',
+                             'hostUrl', 'streamUrl', 'lastError', 'lastSeenAt', 'updatedAt'
+                           ]) ||
+                           // Action: Assign Individual Gmail & Signup Status
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'assignedGmail', 'accountStatus', 'updatedAt'
+                           ]) ||
+                           // Action: Assign Group Only
+                           incoming().diff(existing()).affectedKeys().hasOnly(['groupId', 'updatedAt'])
+                         );
+        allow delete: if isOwner(userId) && isValidId(vmId);
+      }
+
+      match /vm_groups/{groupId} {
+        allow get: if isOwner(userId) && isValidId(groupId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(groupId) &&
+                         isValidVmGroup(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(groupId) &&
+                         isValidVmGroup(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'description', 'colorHex', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(groupId);
+      }
+
+      match /vm_commands/{commandId} {
+        allow get: if isOwner(userId) && isValidId(commandId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(commandId) &&
+                         isValidVmCommand(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(commandId) &&
+                         isValidVmCommand(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().vmId == existing().vmId &&
+                         incoming().commandType == existing().commandType &&
+                         incoming().createdAt == existing().createdAt &&
+                         (isBootstrappedAdmin() || !(existing().deliveryStatus in ['COMPLETED', 'OPENED'])) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'deliveryStatus', 'statusMessage', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(commandId);
+      }
+
+      match /vm_apps/{appRecordId} {
+        allow get: if isOwner(userId) && isValidId(appRecordId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(appRecordId) &&
+                         isValidVmApp(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(appRecordId) &&
+                         isValidVmApp(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().vmId == existing().vmId &&
+                         incoming().packageName == existing().packageName &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'appName', 'versionName', 'versionCode', 'apkSourceUrl',
+                           'sessionProfileId', 'installStatus', 'lastError', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(appRecordId);
+      }
+
+      match /audit_logs/{logId} {
+        allow get: if isOwner(userId) && isValidId(logId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(logId) &&
+                         isValidAuditLog(incoming(), userId);
+        // Audit logs are strictly immutable and append-only
+        allow update, delete: if false;
+      }
+    }
+  }
+}
