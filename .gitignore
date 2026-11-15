@@ -20,7 +20,6 @@ debug.keystore
 companion-server/node_modules/
 companion-web/node_modules/
 companion-web/dist/
-
 # Gemini CLI settings
 .gemini/
 # GitHub Actions credentials
